@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
 const port = process.env.PORT || 5000;
 require('dotenv').config();
@@ -32,6 +32,7 @@ async function run() {
 
     const users =client.db('volunteerCorner').collection('users');
     const volunteerJobs = client.db('volunteerCorner').collection('volunteerJobs');
+   
 
        // create users
     app.post('/users' , async(req , res)=>{
@@ -42,24 +43,37 @@ async function run() {
     });
 
 
-    // Create All Volunteer jobs 
+    // Create All Volunteer jobs ...(POST — Create)
     app.post('/jobs' , async(req, res)=>{
       const job = req.body;
       const result = await volunteerJobs.insertOne(job);
       res.send(result);
 
-    })
-
+    });
+   
+    // GET — Read (data fetch to see data on browser)
+    app.get('/jobs' , async(req , res)=>{
+      const email = req.query.email;
+      let query = {};
+      if(email){
+        query = {organizerEmail: email};
+      }
+      const cursor = volunteerJobs.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
  
+    // GET - Read (specific job -- to view job details)
+    app.get('/jobs/:id' , async(req , res)=>{
+      const id= req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const cursor =  volunteerJobs.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
 
-
-
-
-
-
-
-
+    
   } finally {
     // Ensures that the client will close when you finish/error
     //await client.close();
