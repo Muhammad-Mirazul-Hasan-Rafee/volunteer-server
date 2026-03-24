@@ -32,7 +32,7 @@ async function run() {
 
     const users =client.db('volunteerCorner').collection('users');
     const volunteerJobs = client.db('volunteerCorner').collection('volunteerJobs');
-   
+   const jobApplications = client.db('volunteerCorner').collection('jobApplications');
 
        // create users
     app.post('/users' , async(req , res)=>{
@@ -69,6 +69,14 @@ async function run() {
       const query = {_id: new ObjectId(id)};
       const cursor =  volunteerJobs.find(query);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+
+    //.....................Job application.....................................
+    app.post('/job-application' , async(req , res)=>{
+      const application = req.body;
+      const result = await jobApplications.insertOne(application);
       res.send(result);
     });
 
