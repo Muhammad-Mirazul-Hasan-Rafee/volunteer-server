@@ -74,14 +74,23 @@ async function run() {
 
 
     //.....................Job application.....................................
-    app.post('/job-application' , async(req , res)=>{
+    app.post('/job-applications' , async(req , res)=>{
       const application = req.body;
       const result = await jobApplications.insertOne(application);
       res.send(result);
     });
 
-
-    
+ // GET — Read (data fetch to see data on browser)
+ app.get('/job-applications' , async(req , res)=>{
+  const email = req.query.email;
+  let query ={};
+  if(email){
+    query = { applicant_email : email};
+  }
+  const cursor = jobApplications.find(query);
+  const result = await cursor.toArray();
+  res.send(result);
+ });   
   } finally {
     // Ensures that the client will close when you finish/error
     //await client.close();
@@ -95,7 +104,7 @@ app.get('/' , (req , res)=>{
 app.listen(port ,()=>{
     console.log(`Volunteer server is running on port ${port}`);
 }
-)
+);
 
 
 
