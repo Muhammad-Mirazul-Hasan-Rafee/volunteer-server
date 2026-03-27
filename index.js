@@ -1,15 +1,13 @@
-const express = require('express');
-const cors = require('cors');
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const express = require("express");
+const cors = require("cors");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
-require('dotenv').config();
+require("dotenv").config();
 
 // middleware
 app.use(express.json());
 app.use(cors());
-
-
 
 const uri = `mongodb+srv://${process.env.db_user}:${process.env.keyDb}@cluster0.vhv77.mongodb.net/?appName=Cluster0`;
 
@@ -19,7 +17,7 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
@@ -28,69 +26,77 @@ async function run() {
     await client.connect();
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
-    console.log("⚡️ Great! pinged your deployment. You successfully connected to MongoDB🔥");
+    console.log(
+      "⚡️ Great! pinged your deployment. You successfully connected to MongoDB🔥"
+    );
 
-    const users =client.db('volunteerCorner').collection('users');
-    const volunteerJobs = client.db('volunteerCorner').collection('volunteerJobs');
-   const jobApplications = client.db('volunteerCorner').collection('jobApplications');
+    const users = client.db("volunteerCorner").collection("users");
+    const volunteerJobs = client
+      .db("volunteerCorner")
+      .collection("volunteerJobs");
+    const jobApplications = client
+      .db("volunteerCorner")
+      .collection("jobApplications");
 
-       // create users
-    app.post('/users' , async(req , res)=>{
+    // create users
+    app.post("/users", async (req, res) => {
       const userInfo = req.body;
       const result = await users.insertOne(userInfo);
       res.send(result);
-
     });
 
-
     // Create All Volunteer jobs ...(POST — Create)
-    app.post('/jobs' , async(req, res)=>{
+    app.post("/jobs", async (req, res) => {
       const job = req.body;
       const result = await volunteerJobs.insertOne(job);
       res.send(result);
-
     });
-   
+
     // GET — Read (data fetch to see data on browser)
-    app.get('/jobs' , async(req , res)=>{
+    app.get("/jobs", async (req, res) => {
       const email = req.query.email;
-      let query = {};
-      if(email){
-        query = {organizerEmail: email};
-      }
-      const cursor = volunteerJobs.find(query);
-      const result = await cursor.toArray();
-      res.send(result);
-    });
- 
-    // GET - Read (specific job -- to view job details)
-    app.get('/jobs/:id' , async(req , res)=>{
-      const id= req.params.id;
-      const query = {_id: new ObjectId(id)};
-      const cursor =  volunteerJobs.find(query);
+      const cursor = volunteerJobs.find();
       const result = await cursor.toArray();
       res.send(result);
     });
 
+    // GET - Read (specific job -- to view job details)
+    app.get("/jobs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await volunteerJobs.findOne(query);
+      res.send(result);
+    });
 
     //.....................Job application.....................................
-    app.post('/job-applications' , async(req , res)=>{
+    app.post("/job-applications", async (req, res) => {
       const application = req.body;
       const result = await jobApplications.insertOne(application);
       res.send(result);
     });
 
- // GET — Read (data fetch to see data on browser)
- app.get('/job-applications' , async(req , res)=>{
-  const email = req.query.email;
-  let query ={};
-  if(email){
-    query = { applicant_email : email};
-  }
-  const cursor = jobApplications.find(query);
-  const result = await cursor.toArray();
-  res.send(result);
- });   
+    // GET — Read (data fetch to see data on browser)
+    app.get("/job-applications", async (req, res) => {
+      const email = req.query.email;
+      const query = { applicant_email: email };
+      const cursor = jobApplications.find(query);
+      const result = await cursor.toArray();
+
+      // aggregate data-- we need to find job related INFO's
+      for (const application of result) {
+        console.log(application.job_id);
+        const newQuery = { _id: new ObjectId(application.job_id) };
+        const newResult = await volunteerJobs.findOne(newQuery);
+        if (newResult) {
+          application.title = newResult.title;
+          application.category = newResult.category;
+          application.location = newResult.location;
+          application.salary = newResult.salary;
+          application.deadline = newResult.deadline;
+        }
+      }
+      res.send(result);
+    });
   } finally {
     // Ensures that the client will close when you finish/error
     //await client.close();
@@ -98,16 +104,9 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.get('/' , (req , res)=>{
-    res.send('Votuneer are requested to apply!');
+app.get("/", (req, res) => {
+  res.send("Votuneer are requested to apply!");
 });
-app.listen(port ,()=>{
-    console.log(`Volunteer server is running on port ${port}`);
-}
-);
-
-
-
-
-
-
+app.listen(port, () => {
+  console.log(`Volunteer server is running on port ${port}`);
+});
