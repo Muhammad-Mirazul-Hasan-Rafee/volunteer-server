@@ -84,7 +84,7 @@ async function run() {
 
       // aggregate data-- we need to find job related INFO's
       for (const application of result) {
-        console.log(application.job_id);
+        //console.log(application.job_id);
         const newQuery = { _id: new ObjectId(application.job_id) };
         const newResult = await volunteerJobs.findOne(newQuery);
         if (newResult) {
@@ -96,6 +96,13 @@ async function run() {
         }
       }
       res.send(result);
+    });
+
+    // Delete a job application by user
+    app.delete('/jobs/:id' , async (req , res)=>{
+      const application = req.body;
+      const deleteApplication = await jobApplications.deleteOne(application);
+      res.send(deleteApplication);
     });
   } finally {
     // Ensures that the client will close when you finish/error
