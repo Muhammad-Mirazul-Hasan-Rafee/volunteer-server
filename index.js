@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -7,7 +9,31 @@ require("dotenv").config();
 
 // middleware
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+
+// custom middleware
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  console.log("TOKEN:", token);
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized Access!!" });
+  }
+  // verify token
+  jwt.verify(token, process.env.TOKEN_SECRECT_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "unauthorized access!!" });
+    }
+    req.user = decoded;
+
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.db_user}:${process.env.keyDb}@cluster0.vhv77.mongodb.net/?appName=Cluster0`;
 
@@ -52,11 +78,39 @@ async function run() {
       res.send(result);
     });
 
+    //.................require('crypto').randomBytes(64).toString('hex')................
+    // #..................................Auth related APIs#............................
+    //..................................................................................
+    app.post("/jwt", (req, res) => {
+      // const email = req.body;
+      // const token = jwt.sign({ email }, process.env.TOKEN_SECRECT_KEY, {
+      //   expiresIn: "10hr",
+      const user= req.body;
+      const token = jwt.sign(user , process.env.TOKEN_SECRECT_KEY , {expiresIn:'5hr'});
+       
+   
+      res.cookie('token' , token , {
+        httpOnly: true,
+        secure: false,
+      })
+      .send({success: true})
+    }); 
+
+    app.post("/logout", (req, res) => {
+      res
+        .clearCookie("token", {
+          httpOnly: true,
+          // secure: process.env.NODE_ENV === "production",
+          secure:false,
+          //sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          
+        })
+        .send({ success: true });
+    });
+
     // GET — Read (data fetch to see data on browser)
     app.get("/jobs", async (req, res) => {
-      const email = req.query.email;
-      const cursor = volunteerJobs.find();
-      const result = await cursor.toArray();
+      const result = await volunteerJobs.find().toArray();
       res.send(result);
     });
 
@@ -76,33 +130,56 @@ async function run() {
     });
 
     // GET — Read (data fetch to see data on browser)
-    app.get("/job-applications", async (req, res) => {
-      const email = req.query.email;
-      const query = { applicant_email: email };
-      const cursor = jobApplications.find(query);
-      const result = await cursor.toArray();
+    app.get("/job-applications", verifyToken, async (req, res) => {
+      try {
+        const email = req.user.email;
 
-      // aggregate data-- we need to find job related INFO's
-      for (const application of result) {
-        //console.log(application.job_id);
-        const newQuery = { _id: new ObjectId(application.job_id) };
-        const newResult = await volunteerJobs.findOne(newQuery);
-        if (newResult) {
-          application.title = newResult.title;
-          application.category = newResult.category;
-          application.location = newResult.location;
-          application.salary = newResult.salary;
-          application.deadline = newResult.deadline;
-        }
+        const result = await jobApplications
+          .aggregate([
+            {
+              $match: { applicant_email: email },
+            },
+            {
+              $addFields: {
+                jobIdObj: { $toObjectId: "$job_id" },
+              },
+            },
+            {
+              $lookup: {
+                from: "volunteerJobs",
+                localField: "jobIdObj",
+                foreignField: "_id",
+                as: "jobInfo",
+              },
+            },
+            { $unwind: "$jobInfo" },
+            {
+              $project: {
+                title: "$jobInfo.title",
+                category: "$jobInfo.category",
+                location: "$jobInfo.location",
+                salary: "$jobInfo.salary",
+                deadline: "$jobInfo.deadline",
+                applicant_email: 1,
+                job_id: 1,
+              },
+            },
+          ])
+          .toArray();
+
+        res.send(result);
+      } catch (err) {
+        res.status(500).send({ message: "server error" });
       }
-      res.send(result);
     });
 
     // Delete a job application by user
-    app.delete('/jobs/:id' , async (req , res)=>{
-      const application = req.body;
-      const deleteApplication = await jobApplications.deleteOne(application);
-      res.send(deleteApplication);
+    app.delete("/job-applications/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await jobApplications.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
     });
   } finally {
     // Ensures that the client will close when you finish/error
