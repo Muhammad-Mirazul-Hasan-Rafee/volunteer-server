@@ -133,6 +133,7 @@ async function run() {
     app.get("/job-applications", verifyToken, async (req, res) => {
       try {
         const email = req.user.email;
+        //console.log(req.cookies?.token);
 
         const result = await jobApplications
           .aggregate([
