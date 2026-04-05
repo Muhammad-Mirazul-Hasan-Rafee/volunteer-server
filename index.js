@@ -86,7 +86,7 @@ async function run() {
       // const token = jwt.sign({ email }, process.env.TOKEN_SECRECT_KEY, {
       //   expiresIn: "10hr",
       const user= req.body;
-      const token = jwt.sign(user , process.env.TOKEN_SECRECT_KEY , {expiresIn:'5hr'});
+      const token = jwt.sign(user , process.env.TOKEN_SECRECT_KEY , {expiresIn:'10hr'});
        
    
       res.cookie('token' , token , {
@@ -133,7 +133,10 @@ async function run() {
     app.get("/job-applications", verifyToken, async (req, res) => {
       try {
         const email = req.user.email;
-        //console.log(req.cookies?.token);
+        console.log(req.cookies?.token);
+        if(req.user.email !== req.query.email){
+          return res.status(403).send({message: 'forbidden access!'});
+        }
 
         const result = await jobApplications
           .aggregate([
