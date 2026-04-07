@@ -11,7 +11,7 @@ require("dotenv").config();
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://volunteer-app-6b386.web.app", "https://volunteer-app-6b386.firebaseapp.com", "https://volunteer-client-orcin.vercel.app"],
+    origin: ["http://localhost:5173", "https://volunteer-app-6b386.web.app", "https://volunteer-app-6b386.web.app", "https://volunteer-client-orcin.vercel.app"],
     credentials: true,
   })
 );
