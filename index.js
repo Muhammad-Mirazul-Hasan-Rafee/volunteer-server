@@ -110,7 +110,14 @@ async function run() {
 
     // GET — Read (data fetch to see data on browser)
     app.get("/jobs", async (req, res) => {
-      const result = await volunteerJobs.find().toArray();
+   const sort = req.query?.sort;
+       let sortQuery = {};
+       if(sort == "true" || sort === true){
+        sortQuery = {"salary.min" : -1};
+       }
+       const cursor = volunteerJobs.find({}).sort(sortQuery);
+      const result = await cursor.toArray();
+     
       res.send(result);
     });
 
