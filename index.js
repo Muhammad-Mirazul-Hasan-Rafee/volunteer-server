@@ -11,11 +11,57 @@ require("dotenv").config();
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://volunteer-app-6b386.web.app", "https://volunteer-app-6b386.web.app", "https://volunteer-client-orcin.vercel.app"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5173"
+    ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
 app.use(cookieParser());
+
+// JWT route - Move this OUTSIDE of run() function
+app.post("/jwt", (req, res) => {
+  try {
+    const user = req.body;
+    console.log("JWT request for:", user);
+    
+    if (!user || !user.email) {
+      return res.status(400).send({ message: "Email is required" });
+    }
+    
+    const token = jwt.sign(
+      { email: user.email }, 
+      process.env.TOKEN_SECRECT_KEY, 
+      { expiresIn: '10hr' }
+    );
+    
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: false, // false for localhost
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 60 * 1000,
+      path: '/'
+    }).send({ success: true, token: token });
+    
+  } catch (error) {
+    console.error("JWT Error:", error);
+    res.status(500).send({ message: "Error creating token", error: error.message });
+  }
+});
+
+// Logout route - Move this OUTSIDE of run() function
+app.post("/logout", (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false,
+    sameSite: 'lax',
+    path: '/'
+  }).send({ success: true });
+});
 
 // custom middleware
 const verifyToken = (req, res, next) => {
@@ -30,7 +76,6 @@ const verifyToken = (req, res, next) => {
       return res.status(401).send({ message: "unauthorized access!!" });
     }
     req.user = decoded;
-
     next();
   });
 };
@@ -43,106 +88,94 @@ const client = new MongoClient(uri, {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  },
+  }
 });
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-   // await client.connect();
-    // Send a ping to confirm a successful connection
-   // await client.db("admin").command({ ping: 1 });
-    console.log(
-      "⚡️ Great! pinged your deployment. You successfully connected to MongoDB🔥"
-    );
-
+    // Connect the client to the server
+    await client.connect();
+    console.log("Connected to MongoDB!");
+    
     const users = client.db("volunteerCorner").collection("users");
-    const volunteerJobs = client
-      .db("volunteerCorner")
-      .collection("volunteerJobs");
-    const jobApplications = client
-      .db("volunteerCorner")
-      .collection("jobApplications");
+    const volunteerJobs = client.db("volunteerCorner").collection("volunteerJobs");
+    const jobApplications = client.db("volunteerCorner").collection("jobApplications");
 
     // create users
     app.post("/users", async (req, res) => {
-      const userInfo = req.body;
-      const result = await users.insertOne(userInfo);
-      res.send(result);
+      try {
+        const userInfo = req.body;
+        const result = await users.insertOne(userInfo);
+        res.send(result);
+      } catch (error) {
+        console.error("Error creating user:", error);
+        res.status(500).send({ message: "Error creating user" });
+      }
     });
 
-    // Create All Volunteer jobs ...(POST — Create)
+    // Create All Volunteer jobs
     app.post("/jobs", async (req, res) => {
-      const job = req.body;
-      const result = await volunteerJobs.insertOne(job);
-      res.send(result);
+      try {
+        const job = req.body;
+        const result = await volunteerJobs.insertOne(job);
+        res.send(result);
+      } catch (error) {
+        console.error("Error creating job:", error);
+        res.status(500).send({ message: "Error creating job" });
+      }
     });
 
-    //.................require('crypto').randomBytes(64).toString('hex')................
-    // #..................................Auth related APIs#............................
-    //..................................................................................
-    app.post("/jwt", (req, res) => {
-      // const email = req.body;
-      // const token = jwt.sign({ email }, process.env.TOKEN_SECRECT_KEY, {
-      //   expiresIn: "10hr",
-      const user= req.body;
-      const token = jwt.sign(user , process.env.TOKEN_SECRECT_KEY , {expiresIn:'10hr'});
-       
-   
-      res.cookie('token' , token , {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-      })
-      .send({success: true})
-    }); 
-
-    app.post("/logout", (req, res) => {
-      res
-        .clearCookie("token", {
-          httpOnly: true,
-          // secure: process.env.NODE_ENV === "production",
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        
-        })
-        .send({ success: true });
-    });
-
-    // GET — Read (data fetch to see data on browser)
+    // GET jobs
     app.get("/jobs", async (req, res) => {
-   const sort = req.query?.sort;
-       let sortQuery = {};
-       if(sort == "true" || sort === true){
-        sortQuery = {"salary.min" : -1};
-       }
-       const cursor = volunteerJobs.find({}).sort(sortQuery);
-      const result = await cursor.toArray();
-     
-      res.send(result);
+      try {
+        const sort = req.query?.sort;
+        let sortQuery = {};
+        if (sort == "true" || sort === true) {
+          sortQuery = { "salary.min": -1 };
+        }
+        const cursor = volunteerJobs.find({}).sort(sortQuery);
+        const result = await cursor.toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        res.status(500).send({ message: "Error fetching jobs" });
+      }
     });
 
-    // GET - Read (specific job -- to view job details)
+    // GET specific job
     app.get("/jobs/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await volunteerJobs.findOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await volunteerJobs.findOne(query);
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching job:", error);
+        res.status(500).send({ message: "Error fetching job" });
+      }
     });
 
-    //.....................Job application.....................................
+    // Job application
     app.post("/job-applications", async (req, res) => {
-      const application = req.body;
-      const result = await jobApplications.insertOne(application);
-      res.send(result);
+      try {
+        const application = req.body;
+        const result = await jobApplications.insertOne(application);
+        res.send(result);
+      } catch (error) {
+        console.error("Error creating application:", error);
+        res.status(500).send({ message: "Error creating application" });
+      }
     });
 
-    // GET — Read (data fetch to see data on browser)
+    // GET job applications
     app.get("/job-applications", verifyToken, async (req, res) => {
       try {
         const email = req.user.email;
-        console.log(req.cookies?.token);
-        if(req.user.email !== req.query.email){
-          return res.status(403).send({message: 'forbidden access!'});
+        console.log("User email:", email);
+        console.log("Query email:", req.query.email);
+        
+        if (req.user.email !== req.query.email) {
+          return res.status(403).send({ message: 'forbidden access!' });
         }
 
         const result = await jobApplications
@@ -180,28 +213,34 @@ async function run() {
 
         res.send(result);
       } catch (err) {
+        console.error("Error:", err);
         res.status(500).send({ message: "server error" });
       }
     });
 
     // Delete a job application by user
     app.delete("/job-applications/:id", verifyToken, async (req, res) => {
-      const id = req.params.id;
-      const result = await jobApplications.deleteOne({
-        _id: new ObjectId(id),
-      });
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const result = await jobApplications.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      } catch (error) {
+        console.error("Error deleting application:", error);
+        res.status(500).send({ message: "Error deleting application" });
+      }
     });
-  } finally {
-    // Ensures that the client will close when you finish/error
-    //await client.close();
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
   }
 }
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("Votuneer are requested to apply!");
+  res.send("Volunteer server is running!");
 });
+
 app.listen(port, () => {
   console.log(`Volunteer server is running on port ${port}`);
 });
