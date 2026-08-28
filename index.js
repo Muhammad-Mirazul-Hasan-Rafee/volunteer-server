@@ -14,7 +14,9 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "http://127.0.0.1:5173"
+      "http://127.0.0.1:5173",
+      "https://volunteer-client-psi.vercel.app",
+      "https://volunteer-client-ay8dn98r5-hasan-rafees-projects.vercel.app"
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
