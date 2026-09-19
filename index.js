@@ -30,6 +30,7 @@ app.post("/jwt", (req, res) => {
   try {
     const user = req.body;
     console.log("JWT request for:", user);
+     console.log("SECRET VALUE:", process.env.TOKEN_SECRECT_KEY);
     
     if (!user || !user.email) {
       return res.status(400).send({ message: "Email is required" });
@@ -82,7 +83,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-const uri = `mongodb+srv://${process.env.db_user}:${process.env.keyDb}@cluster0.vhv77.mongodb.net/?appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.db_user}:${process.env.db_password}@cluster0.vhv77.mongodb.net/?appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
