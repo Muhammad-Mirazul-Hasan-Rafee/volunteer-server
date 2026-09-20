@@ -3,29 +3,56 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+require("dotenv").config();
+
 const app = express();
 const port = process.env.PORT || 5000;
-require("dotenv").config();
+
+//environment flag — true on Vercel, false on localhost
+const isProduction = process.env.NODE_ENV === "production";
+
 
 // middleware
 app.use(express.json());
 app.use(
   cors({
-    origin: [
+    // allow all .vercel.app domains + localhost
+    origin: (origin,callback)=>{
+      const allowed =[
+      "https://volunteer-client-phi.vercel.app",
       "http://localhost:5173",
       "http://localhost:5174",
       "http://127.0.0.1:5173",
-      "https://volunteer-client-psi.vercel.app",
-      "https://volunteer-client-ay8dn98r5-hasan-rafees-projects.vercel.app"
-    ],
+    ];
+    if (
+        !origin ||
+        allowed.includes(origin) ||
+        origin.endsWith(".vercel.app")
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
-app.use(cookieParser());
 
-// JWT route - Move this OUTSIDE of run() function
+
+app.use(cookieParser());
+// ---------- COOKIE OPTIONS ----------
+//reusable cookie options that adapt to prod vs dev
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction,                   // true on Vercel (HTTPS), false on localhost
+  sameSite: isProduction ? "none" : "lax", // 'none' needed for cross-domain in prod
+  maxAge: 10 * 60 * 60 * 1000,
+  path: "/",
+};
+
+//..................JWT route..............
 app.post("/jwt", (req, res) => {
   try {
     const user = req.body;
@@ -42,27 +69,23 @@ app.post("/jwt", (req, res) => {
       { expiresIn: '10hr' }
     );
     
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: false, // false for localhost
-      sameSite: 'lax',
-      maxAge: 10 * 60 * 60 * 1000,
-      path: '/'
-    }).send({ success: true, token: token });
-    
+    //use cookieOptions
+    res.cookie("token", token, cookieOptions).send({ success: true, token });
   } catch (error) {
     console.error("JWT Error:", error);
     res.status(500).send({ message: "Error creating token", error: error.message });
   }
 });
 
-// Logout route - Move this OUTSIDE of run() function
+//............Logout route.............
+
 app.post("/logout", (req, res) => {
+   //use same cookie options (minus maxAge) to clear properly
   res.clearCookie("token", {
     httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
-    path: '/'
+    secure: isProduction,
+     sameSite: isProduction ? "none" : "lax",
+    path: '/',
   }).send({ success: true });
 });
 
@@ -83,9 +106,11 @@ const verifyToken = (req, res, next) => {
   });
 };
 
+// ---------- MONGODB (CACHED CONNECTION) ----------
+
 const uri = `mongodb+srv://${process.env.db_user}:${process.env.db_password}@cluster0.vhv77.mongodb.net/?appName=Cluster0`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -244,6 +269,10 @@ app.get("/", (req, res) => {
   res.send("Volunteer server is running!");
 });
 
-app.listen(port, () => {
-  console.log(`Volunteer server is running on port ${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Volunteer server is running on port ${port}`);
+  });
+}
+
+module.exports = app;
