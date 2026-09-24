@@ -39,8 +39,8 @@ app.use(cookieParser());
 // ---------------- COOKIE OPTIONS ----------------
 const cookieOptions = {
   httpOnly: true,
-  secure: isVercel,                    // true on Vercel (HTTPS), false on localhost
-  sameSite: isVercel ? "none" : "lax", // "none" needed for cross-domain on Vercel
+  secure: isVercel,
+  sameSite: isVercel ? "none" : "lax",
   maxAge: 10 * 60 * 60 * 1000,
   path: "/",
 };
