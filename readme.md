@@ -67,7 +67,7 @@ package.json
 
 ## Environment
 
-Create a `.env` file at the project root with your own values:
+A `.env` file at the project root supplies the runtime configuration:
 
 ```env
 db_user=
@@ -76,7 +76,7 @@ TOKEN_SECRECT_KEY=
 NODE_ENV=production
 ```
 
-On Vercel, these are configured under Project → Settings → Environment Variables. They are never committed to the repository. 🔒
+On Vercel, these are configured under Project → Settings → Environment Variables and kept out of version control. 🔒
 
 ---
 
@@ -113,7 +113,7 @@ Nothing is stored client-side. Nothing is trusted without verification.
 
 ## Serverless Considerations
 
-Vercel invokes functions on demand, and each invocation can create a new Mongo client if you let it. This server avoids that by caching the connection across invocations: ⚡
+Vercel invokes functions on demand, and each invocation can create a new Mongo client if the code allows it. This server avoids that by caching the connection across invocations: ⚡
 
 ```js
 let cachedDb = null;
@@ -146,7 +146,7 @@ The fix is architectural. The cookie is configured so that it is explicitly cros
 }
 ```
 
-And the client proxies all API traffic under `/api/*`, so the browser sees a single origin. The cookie is delivered as first-party, and sessions survive deploys. 🔀
+The client proxies all API traffic under `/api/*`, so the browser sees a single origin. The cookie is delivered as first-party, and sessions survive deploys. 🔀
 
 ---
 
